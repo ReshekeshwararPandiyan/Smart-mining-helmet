@@ -1,0 +1,163 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <ESP8266WiFi.h>
+#include <ArduinoHttpClient.h>
+
+// Replace with your Wi-Fi credentials
+const char* ssid = "Redmi Note 9 Pro";
+const char* password = "reshe8402";
+const char* host = "maker.ifttt.com";
+// Replace with your server information
+const char* serverAddress = "100.82.123.209";
+const int serverPort = 80; // HTTP default port
+
+MPU6050 mpu;
+WiFiClient wifiClient;
+HttpClient client = HttpClient(wifiClient, serverAddress, serverPort);
+int gasSensorPin = A0; // Analog input pin for the MQ-4 sensor
+int gasValue; // Variable to store the sensor value
+const char* iftttWebhookURL = "https://maker.ifttt.com/trigger/Fall_Detected/json/with/key/p9LGrUutNcJnzCZb-EeeMe1cBts1GHdaFEM5fPCPUD";
+const char* iftttWebhookURL2 = "https://maker.ifttt.com/trigger/Gas_Detected/json/with/key/p9LGrUutNcJnzCZb-EeeMe1cBts1GHdaFEM5fPCPUD";
+void setup() {
+Wire.begin();
+
+// Connect to Wi-Fi
+Serial.begin(115200); // Initialize serial communication
+
+WiFi.begin(ssid, password);
+while (WiFi.status() != WL_CONNECTED) {
+delay(1000);
+Serial.println("Connecting to WiFi...");
+}
+Serial.println("Connected to WiFi");
+
+// Initialize MPU6050
+mpu.initialize();
+mpu.setFullScaleAccelRange(MPU6050_IMU::MPU6050_ACCEL_FS_2);
+mpu.setFullScaleGyroRange(MPU6050_IMU::MPU6050_GYRO_FS_250);
+}
+
+void loop() {
+
+// Check if a fall is detected
+if (isFallDetected()) {
+delay(5000);
+if(isFallDetected()){
+Serial.println("Fall detected confirmed!");
+if (WiFi.status() == WL_CONNECTED) {
+WiFiClient client;
+
+Serial.print("Connecting to IFTTT...");
+if (client.connect("maker.ifttt.com", 80)) { // Use port 443 for HTTPS
+Serial.println("Connected to IFTTT");
+String request = String("GET ") + iftttWebhookURL + " HTTP/1.1\r\n" +
+"Host: maker.ifttt.com\r\n" +
+"Connection: close\r\n\r\n";
+client.print(request);
+
+// Wait for the response
+while (client.connected()) {
+String line = client.readStringUntil('\n');
+if (line == "\r") {
+break;
+}
+}
+
+// Read and print the response
+while (client.available()) {
+char c = client.read();
+Serial.print(c);
+}
+
+client.stop();
+} else {
+Serial.println("Connection to IFTTT failed.");
+}
+} else {
+Serial.println("Not connected to WiFi.");
+}
+// Send a message when a fall is detected
+// Delay to avoid continuous alerting for the same fall
+delay(30000);
+// Adjust the delay as needed
+}
+else
+{
+Serial.println("normal position");
+}
+}
+int gasValue = analogRead(gasSensorPin); // Read analog value from the sensor
+float voltage = (gasValue / 1024.0) * 5.0; // Convert analog value to voltage (5V reference)
+// Output the results
+//Serial.print("Detected gas Value: ");
+//Serial.println(gasValue);
+if(gasValue<550)
+{
+Serial.println(" No Gas Detected");
+}
+else
+{
+Serial.println("Gas Detected");
+if (WiFi.status() == WL_CONNECTED) {
+WiFiClient client;
+
+Serial.print("Connecting to IFTTT...");
+if (client.connect("maker.ifttt.com", 80)) { // Use port 443 for HTTPS
+Serial.println("Connected to IFTTT");
+String request = String("GET ") + iftttWebhookURL2 + " HTTP/1.1\r\n" +
+"Host: maker.ifttt.com\r\n" +
+"Connection: close\r\n\r\n";
+client.print(request);
+
+// Wait for the response
+while (client.connected()) {
+String line = client.readStringUntil('\n');
+if (line == "\r") {
+break;
+}
+}
+
+// Read and print the response
+while (client.available()) {
+char c = client.read();
+Serial.print(c);
+}
+
+client.stop();
+} else {
+Serial.println("Connection to IFTTT failed.");
+}
+} else {
+Serial.println("Not connected to WiFi.");
+}
+
+delay(30000);
+
+}
+Serial.print("Voltage: ");
+Serial.print(voltage);
+Serial.println(" V");
+
+
+
+delay(1000); // Delay for a second before taking the next reading
+}
+
+bool isFallDetected() {
+
+
+
+int16_t ax, ay, az;
+//char value[40];
+mpu.getAcceleration(&ax, &ay, &az);
+
+float threshold =1.0;
+//Serial.print("values: ");
+
+if (az<threshold) {
+return true;
+}
+else {
+return false;
+}
+}
